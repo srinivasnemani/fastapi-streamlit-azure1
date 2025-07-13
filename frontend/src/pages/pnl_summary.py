@@ -58,13 +58,16 @@ def show() -> None:
 
     api_client = FastAPIClient()
 
-    tab1, tab2 = st.tabs(["📊 PnL History Table", "📈 PnL Analysis by stock"])
+    tab1, tab2, tab3 = st.tabs(["📊 PnL History Table", "📈 PnL Analysis by stock", "🏆 Max Profit Analysis Dates"])
 
     with tab1:
         show_pnl_history(api_client)
 
     with tab2:
         show_pnl_analysis_per_stock(api_client)
+
+    with tab3:
+        show_max_profit_table(api_client)
 
 
 def show_pnl_history(api_client: FastAPIClient) -> None:
@@ -237,6 +240,48 @@ def show_pnl_analysis_per_stock(api_client: FastAPIClient) -> None:
         st.plotly_chart(fig2, use_container_width=True)
     else:
         st.info("No P&L data available for this ticker.")
+
+
+def show_max_profit_table(api_client: FastAPIClient) -> None:
+    st.subheader("Max Profit Summary Table")
+
+    if st.button("🔄 Refresh Max Profit Data", key="refresh_max_profit"):
+        _load_data_to_session_state(
+            api_client=api_client,
+            data_getter=api_client.get_max_profit,
+            session_key="max_profit_df",
+            loading_message="Loading max profit data...",
+            empty_message="No max profit data available",
+            error_message="Failed to load max profit data",
+        )
+
+    df = st.session_state.get("max_profit_df", None)
+    if df is not None:
+        # Format columns as requested
+        for col in ["max_profit", "buy_price", "sell_price", "profit_percentage"]:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else x)
+        # Format date columns
+        for col in ["buy_date", "sell_date"]:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: str(x)[:10] if pd.notnull(x) and len(str(x)) >= 10 else x)
+
+        csv = df.to_csv(index=False)
+        st.download_button("Download Table as CSV", csv, "max_profit.csv", "text/csv")
+
+        gb = GridOptionsBuilder.from_dataframe(df)
+        dollar_cols = set()  # All formatting is handled above
+        percent_cols = set()
+        _configure_ag_grid_columns(gb, df, dollar_cols, percent_cols)
+        gridOptions = gb.build()
+        AgGrid(
+            df,
+            gridOptions=gridOptions,
+            fit_columns_on_grid_load=True,
+            theme="compact",
+        )
+    else:
+        st.info("Click 'Refresh Max Profit Data' to load and download the table.")
 
 
 def perform_pnl_analysis(

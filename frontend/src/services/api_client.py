@@ -12,6 +12,7 @@ from src.utils.constants import (
     TRADES_UPLOAD_ENDPOINT,
     PRICES_DELETE_PATTERN,
     TRADES_DELETE_PATTERN,
+    MAX_PROFIT_ENDPOINT,
 )
 
 
@@ -59,6 +60,16 @@ class FastAPIClient:
         """Get PnL history from the API"""
         try:
             response = requests.get(PNL_ENDPOINT, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            st.error(f"API request failed: {str(e)}")
+            return None
+
+    def get_max_profit(self) -> Optional[list[dict]]:
+        """Get max profit summary data from the API"""
+        try:
+            response = requests.get(MAX_PROFIT_ENDPOINT, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
