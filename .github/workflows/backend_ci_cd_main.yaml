@@ -1,0 +1,158 @@
+name: Run Unit Tests, Create Docker Image, Push Docker Image to DockerHub, Deploy the image in Azure WebApp Service
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/src/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/src/**'
+  workflow_dispatch:
+
+# =============================================================================
+# TESTING BLOCK
+# =============================================================================
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+      pull-requests: write
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.head_ref }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v1
+      with:
+        version: latest
+        
+    - name: Install dependencies
+      run: |
+        uv sync --frozen --no-dev
+        
+    - name: Run tests
+      run: |
+        cd backend
+        uv run pytest tests/ --verbose
+        
+    - name: Create test status
+      if: success()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.sha,
+            state: 'success',
+            description: '✅ All tests passed successfully!',
+            context: 'pytest'
+          })
+
+# =============================================================================
+# DOCKER IMAGE BUILDING AND PUBLISHING BLOCK
+# =============================================================================
+  build-docker-image-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Debug workflow context
+      run: |
+        echo "Event name: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Head ref: ${{ github.head_ref }}"
+        echo "Docker Hub username: ${{ secrets.DOCKERHUB_USERNAME }}"
+        echo "Docker Hub token exists: ${{ secrets.DOCKERHUB_TOKEN_202507_01 != '' }}"
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN_202507_01 }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Debug Docker image
+      if: success()
+      run: |
+        echo "✅ Docker image built and pushed successfully!"
+        echo "Event type: ${{ github.event_name }}"
+        echo "Build completed successfully! 😊"
+
+# =============================================================================
+# PUSH IMAGE TO AZURE BLOCK
+# =============================================================================
+  deploy-to-azure:
+    needs: build-docker-image-and-push
+    runs-on: ubuntu-latest
+    if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Verify Azure login status
+      run: |
+        echo "Checking Azure login status..."
+        if az account show > /dev/null 2>&1; then
+          echo "✅ Azure login successful!"
+          echo "Logged in as: $(az account show --query user.name -o tsv)"
+          echo "Subscription: $(az account show --query name -o tsv)"
+          echo "Tenant ID: $(az account show --query tenantId -o tsv)"
+        else
+          echo "❌ Azure login failed!"
+          echo "Please check your AZURE_CREDENTIALS secret"
+          exit 1
+        fi
+        
+    - name: Update container image
+      run: |
+        echo "Updating Azure App Service container image..."
+        az webapp config container set \
+          --name ${{ secrets.AZURE_APP_NAME }} \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --container-image-name ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-backend:latest
+        echo "✅ Container image updated successfully!"
+          
+    - name: Restart app
+      run: |
+        echo "Restarting Azure App Service..."
+        az webapp restart \
+          --name ${{ secrets.AZURE_APP_NAME }} \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
+        echo "✅ App Service restarted successfully!" 

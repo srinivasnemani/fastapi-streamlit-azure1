@@ -1,0 +1,27 @@
+[server]
+# Server settings for Azure App Service
+port = 80
+address = "0.0.0.0"
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Browser settings
+gatherUsageStats = false
+
+[theme]
+# Theme settings - White background theme
+primaryColor = "#1f77b4"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
+font = "sans serif"
+
+[client]
+# Client settings
+showErrorDetails = true
+
+[global]
+# Global settings
+developmentMode = false 
