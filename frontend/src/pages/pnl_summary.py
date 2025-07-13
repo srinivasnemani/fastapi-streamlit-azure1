@@ -230,6 +230,16 @@ def show_pnl_analysis_per_stock(api_client: FastAPIClient) -> None:
             )
         )
         has_any = True
+    if "total_pnl" in ticker_df.columns:
+        fig2.add_trace(
+            go.Scatter(
+                x=ticker_df["trade_date"],
+                y=ticker_df["total_pnl"],
+                name="Total P&L",
+                line=dict(color="#9467bd"),
+            )
+        )
+        has_any = True
 
     if has_any:
         fig2.update_layout(
@@ -258,9 +268,14 @@ def show_max_profit_table(api_client: FastAPIClient) -> None:
     df = st.session_state.get("max_profit_df", None)
     if df is not None:
         # Format columns as requested
+        def safe_format(val):
+            try:
+                return f"{float(val):.2f}"
+            except (ValueError, TypeError):
+                return val
         for col in ["max_profit", "buy_price", "sell_price", "profit_percentage"]:
             if col in df.columns:
-                df[col] = df[col].apply(lambda x: f"{x:.2f}" if pd.notnull(x) else x)
+                df[col] = df[col].apply(safe_format)
         # Format date columns
         for col in ["buy_date", "sell_date"]:
             if col in df.columns:
