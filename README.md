@@ -67,6 +67,7 @@ The application follows a clean separation of concerns:
 - **Deployment**: Both components are containerized and hosted on Azure using GitHub actions
 
 
+
 ## Folder Structure of backend application
 
 ```
@@ -125,3 +126,13 @@ frontend/
     ├── test_api_client.py # API client tests
     └── test_components.py # Component tests
 ```
+
+## Development Tools
+
+**Package Management/Virtual Environments**: UV
+
+**Code Linting, Formatting**: iSort, Black, UV Ruff
+
+**Testing**: PyTest
+
+**Type Checking**: MyPy

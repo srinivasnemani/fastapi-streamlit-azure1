@@ -1,4 +1,4 @@
-name: Run Unit Tests, Create Docker Image, Push Docker Image to DockerHub, Deploy the image in Azure WebApp Service
+name: Backend CI/CD - Run Unit Tests, Create Docker Image, Push Docker Image to DockerHub, Deploy the image in Azure WebApp Service
 
 on:
   pull_request:

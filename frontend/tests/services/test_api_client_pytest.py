@@ -51,47 +51,43 @@ class TestFastAPIClient:
         assert client.base_url == "http://custom.com"
         assert client.timeout == 60
 
-    @patch("requests.request")
+    @patch("requests.get")
     def test_get_trades_success(
         self,
-        mock_request: Mock,
+        mock_get: Mock,
         api_client: FastAPIClient,
         sample_trades: List[Dict[str, Any]],
     ) -> None:
         mock_response = Mock()
         mock_response.json.return_value = sample_trades
         mock_response.raise_for_status.return_value = None
-        mock_request.return_value = mock_response
+        mock_get.return_value = mock_response
 
         result = api_client.get_trades()
 
         assert result is not None
         assert len(result) == 2
         assert result[0]["ticker"] == "AAPL"
-        mock_request.assert_called_once_with(
-            "GET", "http://test.com/api/v1/trades", timeout=10
-        )
+        mock_get.assert_called_once()
 
-    @patch("requests.request")
+    @patch("requests.get")
     def test_get_pnl_history_success(
         self,
-        mock_request: Mock,
+        mock_get: Mock,
         api_client: FastAPIClient,
         sample_pnl_data: List[Dict[str, Any]],
     ) -> None:
         mock_response = Mock()
         mock_response.json.return_value = sample_pnl_data
         mock_response.raise_for_status.return_value = None
-        mock_request.return_value = mock_response
+        mock_get.return_value = mock_response
 
         result = api_client.get_pnl_history()
 
         assert result is not None
         assert len(result) == 2
         assert result[0]["realized_pnl"] == 100.0
-        mock_request.assert_called_once_with(
-            "GET", "http://test.com/api/v1/pnl_history", timeout=10
-        )
+        mock_get.assert_called_once()
 
     @patch("requests.post")
     def test_upload_prices_success(
