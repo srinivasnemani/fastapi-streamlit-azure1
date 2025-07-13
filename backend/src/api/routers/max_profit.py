@@ -11,7 +11,7 @@ from backend.src.data_acess.repository import TradeDataRepository
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/max_profit")
 async def get_maximum_profit_data(
     ticker: Optional[str] = None,
     repo: TradeDataRepository = Depends(get_trade_data_repository),
