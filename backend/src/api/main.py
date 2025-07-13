@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .middleware.exception_handling import ExceptionMiddleware
 from .middleware.logging import LoggingMiddleware
-from .routers import pnl, prices, trades
+from .routers import pnl, prices, trades, max_profit
 
 # Configuration for CORS middleware
 CORS_CONFIG = {
@@ -21,6 +21,7 @@ ROUTERS = [
     (prices.router, "prices"),
     (trades.router, "trades"),
     (pnl.router, "pnl"),
+    (max_profit.router, "max_profit"),
 ]
 
 app = FastAPI(

@@ -232,3 +232,163 @@ class PnLAnalytics:
             [process_ticker_trades(group) for _, group in df.groupby("ticker")],
             ignore_index=True,
         )
+
+
+    def find_maximum_profit_dates(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Find the dates when maximum profit can be made for each stock
+        with both Long Only and Short Sale constraints.
+        
+        Returns:
+            Dict containing for each ticker:
+            - 'long_only': {'buy_date': date, 'sell_date': date, 'max_profit': float}
+            - 'short_sale': {'sell_date': date, 'buy_date': date, 'max_profit': float}
+        """
+        results = {}
+        
+        for ticker in self.prices_df['ticker'].unique():
+            ticker_prices = self.prices_df[self.prices_df['ticker'] == ticker].copy()
+            ticker_prices = ticker_prices.sort_values('trade_date')
+            
+            if len(ticker_prices) < 2:
+                continue
+                
+            # Calculate maximum profit for Long Only strategy
+            long_only_result = self._calculate_max_profit_vectorized(ticker_prices, strategy="long_only")
+            
+            # Calculate maximum profit for Short Sale strategy
+            short_sale_result = self._calculate_max_profit_vectorized(ticker_prices, strategy="short_sale")
+            
+            results[ticker] = {
+                'long_only': long_only_result,
+                'short_sale': short_sale_result
+            }
+        
+        return results
+    
+    def _calculate_max_profit_vectorized(self, prices_df: pd.DataFrame, strategy: str) -> Dict[str, Any]:
+        """
+        Vectorized calculation of maximum profit for both long only and short sale strategies
+        
+        Args:
+            prices_df: DataFrame with 'trade_date' and 'close_price' columns for a single ticker
+            strategy: Either 'long_only' or 'short_sale'
+            
+        Returns:
+            Dict with profit details and dates
+        """
+        if len(prices_df) < 2:
+            return self._get_empty_profit_result(strategy)
+        
+        prices = prices_df['close_price'].values
+        dates = prices_df['trade_date'].values
+        
+        if strategy == "long_only":
+            # Long only: buy low, sell high
+            # Track minimum price so far and calculate profit as current_price - min_price_so_far
+            reference_prices = np.minimum.accumulate(prices)
+            profits = prices - reference_prices
+            max_profit_idx = profits.argmax()
+            max_profit = profits[max_profit_idx]
+            
+            if max_profit <= 0:
+                return self._get_empty_profit_result(strategy)
+            
+            # Find buy date (minimum price up to sell day)
+            buy_idx = (prices[:max_profit_idx+1]).argmin()
+            sell_idx = max_profit_idx
+            
+            return {
+                'buy_date': dates[buy_idx],
+                'sell_date': dates[sell_idx],
+                'max_profit': float(max_profit),
+                'buy_price': float(prices[buy_idx]),
+                'sell_price': float(prices[sell_idx])
+            }
+        
+        elif strategy == "short_sale":
+            # Short sale: sell high, buy low
+            # For short sale, we need to find the best sell point (highest price) 
+            # and then the best buy point (lowest price) after selling
+            max_profit = 0
+            best_sell_idx = 0
+            best_buy_idx = 0
+            
+            for sell_idx in range(len(prices) - 1):
+                # For each potential sell point, find the best buy point after it
+                sell_price = prices[sell_idx]
+                min_price_after_sell = np.min(prices[sell_idx + 1:])
+                min_price_idx = sell_idx + 1 + np.argmin(prices[sell_idx + 1:])
+                
+                profit = sell_price - min_price_after_sell
+                if profit > max_profit:
+                    max_profit = profit
+                    best_sell_idx = sell_idx
+                    best_buy_idx = min_price_idx
+            
+            if max_profit <= 0:
+                return self._get_empty_profit_result(strategy)
+            
+            return {
+                'sell_date': dates[best_sell_idx],
+                'buy_date': dates[best_buy_idx],
+                'max_profit': float(max_profit),
+                'sell_price': float(prices[best_sell_idx]),
+                'buy_price': float(prices[best_buy_idx])
+            }
+        
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}. Must be 'long_only' or 'short_sale'")
+    
+    def _get_empty_profit_result(self, strategy: str) -> Dict[str, Any]:
+        """Get empty result structure for when no profit is possible"""
+        return {
+            'buy_date': None,
+            'sell_date': None,
+            'max_profit': 0.0,
+            'buy_price': None,
+            'sell_price': None
+        }
+    
+    def get_maximum_profit_summary(self) -> pd.DataFrame:
+        """
+        Get a summary DataFrame of maximum profit opportunities for all stocks
+        
+        Returns:
+            DataFrame with columns: ticker, strategy, buy_date, sell_date, max_profit, 
+            buy_price, sell_price, profit_percentage
+        """
+        max_profit_data = self.find_maximum_profit_dates()
+        
+        summary_data = []
+        
+        for ticker, strategies in max_profit_data.items():
+            # Long Only strategy
+            long_only = strategies['long_only']
+            if long_only['max_profit'] > 0:
+                summary_data.append({
+                    'ticker': ticker,
+                    'strategy': 'Long Only',
+                    'buy_date': long_only['buy_date'],
+                    'sell_date': long_only['sell_date'],
+                    'max_profit': long_only['max_profit'],
+                    'buy_price': long_only['buy_price'],
+                    'sell_price': long_only['sell_price'],
+                    'profit_percentage': (long_only['max_profit'] / long_only['buy_price'] * 100) if long_only['buy_price'] else 0
+                })
+            
+            # Short Sale strategy
+            short_sale = strategies['short_sale']
+            if short_sale['max_profit'] > 0:
+                summary_data.append({
+                    'ticker': ticker,
+                    'strategy': 'Short Sale',
+                    'buy_date': short_sale['buy_date'],
+                    'sell_date': short_sale['sell_date'],
+                    'max_profit': short_sale['max_profit'],
+                    'buy_price': short_sale['buy_price'],
+                    'sell_price': short_sale['sell_price'],
+                    'profit_percentage': (short_sale['max_profit'] / short_sale['sell_price'] * 100) if short_sale['sell_price'] else 0
+                })
+        
+        return pd.DataFrame(summary_data)
