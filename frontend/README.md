@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Streamlit-based demo P&L dashboard with visualizations and API integration.
+Streamlit-based web application for stock trading dashboard with real-time data visualization and API integration.
 
 ### Azure Hosted API endpoints:  https://fastapi-backend-2.azurewebsites.net/docs
 ### Streamlit Application link:  https://streamlit-fronend-1.azurewebsites.net/
@@ -30,6 +30,8 @@ frontend/
     ├── test_api_client.py # API client tests
     └── test_components.py # Component tests
 ```
+
+**Base API URL**: `https://fastapi-backend-2.azurewebsites.net`
 
 ## Core Components
 
@@ -103,8 +105,8 @@ frontend/
 
 #### 📊 PnL History Table Tab
 
-- PnL data display with AG Grid
-- Event based data refresh from API
+- Complete PnL data display with AG Grid
+- Real-time data refresh from API
 - CSV export functionality
 - Interactive PnL charts over time
 - Formatted columns for dollar amounts and percentages
@@ -133,7 +135,7 @@ frontend/
 1. User interactions trigger API calls
 2. API client handles HTTP requests/responses
 3. Data processing and transformation
-4. UI component updates visualizations/tables with new data
+4. UI component updates with new data
 
 ## Dependencies
 

@@ -45,7 +45,7 @@ backend/
 
 - **api/**: Main FastAPI application code, including routers for different endpoints and middleware for logging, error handling, and authentication.
 - **analytics/**: Contains business logic for analytics, especially PnL calculations.
-- **data_acess/**: Data access layer for database operations.
+- **data_acess/**: Data access layer for database operations. (Consider renaming to `data_access` for clarity.)
 - **database/**: Contains the SQLite database file for persistent storage.
 - **tests/**: Unit and integration tests for all backend modules.
 
